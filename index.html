@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
     <title>Ring</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -45,7 +45,32 @@
 
         * {
             box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation
+        }
+
+        body {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none
+        }
+
+        input {
+            -webkit-user-select: text;
+            user-select: text
+        }
+
+        #dim {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            background: #000;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 60px;
+            color: rgba(255, 255, 255, .25);
+            font-size: 14px
         }
 
         html,
@@ -557,6 +582,7 @@
                 </svg></button>
         </div>
     </div>
+    <div id="dim" class="hide"><span>Press and hold to wake</span></div>
     <div id="ov" class="hide">
         <div class="av glass" id="avl">?</div>
         <h1 id="who" style="margin:0;font-size:32px"></h1>
@@ -913,24 +939,26 @@
             }, 60);
             return dest.stream
         }
+        let dimT;
+
+        function dimCheck(d = 2000) {
+            clearTimeout(dimT);
+            show('dim', false);
+            if (S && S.connected && A.mode === 'ear') dimT = setTimeout(() => show('dim'), d)
+        }
 
         function setMode(m) {
             A.mode = m;
             $('mode').textContent = m === 'speaker' ? 'Speaker' : 'Ear';
-            $('rem').volume = m === 'speaker' ? 1 : .55
+            $('rem').volume = m === 'speaker' ? 1 : .55;
+            dimCheck()
         }
-
-        function motion(e) {
-            if (A.manual) return;
-            const g = e.accelerationIncludingGravity;
-            if (g && g.z != null) setMode(Math.abs(g.z) > 7.5 ? 'speaker' : 'ear')
-        } // phone lying flat = gravity on Z axis
-        async function motionOn() {
-            try {
-                if (window.DeviceMotionEvent && DeviceMotionEvent.requestPermission) await DeviceMotionEvent.requestPermission();
-                addEventListener('devicemotion', motion)
-            } catch (e) {}
-        }
+        let wk;
+        $('dim').onpointerdown = () => {
+            wk = setTimeout(() => dimCheck(6000), 700)
+        };
+        $('dim').onpointerup = $('dim').onpointercancel = $('dim').onpointerleave = () => clearTimeout(wk);
+        addEventListener('gesturestart', e => e.preventDefault());
         $('mode').onclick = () => {
             A.manual = true;
             setMode(A.mode === 'speaker' ? 'ear' : 'speaker')
@@ -958,9 +986,11 @@
             const u = callRef.collection(theirs).onSnapshot(s => s.docChanges().forEach(c => c.type === 'added' && pc.addIceCandidate(c.doc.data()).catch(() => {})));
             pc.onconnectionstatechange = () => {
                 if (pc.connectionState === 'connected') {
+                    S.connected = 1;
                     ui(S.who, '00:00', {
                         btns: ['end']
                     });
+                    dimCheck();
                     show('mt');
                     show('chips');
                     clock();
@@ -988,7 +1018,6 @@
             try {
                 const r = await lookup(n);
                 if (r.uid === me.uid) throw Error("That's your own number");
-                await motionOn();
                 addRecent({
                     name: r.name,
                     number: n,
@@ -1093,7 +1122,6 @@
             ring(false);
             const c = inc.data(),
                 ref = inc.ref;
-            await motionOn();
             addRecent({
                 name: c.callerName,
                 number: c.callerNumber,
@@ -1139,7 +1167,8 @@
             clearInterval(timerI);
             clearInterval(A.loop);
             s.unsub.forEach(f => f());
-            removeEventListener('devicemotion', motion);
+            clearTimeout(dimT);
+            show('dim', false);
             try {
                 s.pc.close();
                 A.raw && A.raw.getTracks().forEach(t => t.stop());
@@ -1155,7 +1184,7 @@
             show('mt', false);
             show('chips', false);
             $('rem').srcObject = null;
-            A.manual = false
+            setMode('speaker')
         }
     </script>
 </body>
