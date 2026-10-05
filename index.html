@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>Ring</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -125,8 +125,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0 8px;
-            height: 68px
+            padding: 12px 20px 8px;
+            margin: 0 -20px;
+            height: 68px;
+            background: color-mix(in srgb, var(--bg) 72%, transparent);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px)
         }
 
         .top b {
@@ -564,6 +568,19 @@
             font-size: 13px;
             margin: 10px 6px 8px
         }
+
+        #toast {
+            position: fixed;
+            left: 50%;
+            top: calc(14px + env(safe-area-inset-top));
+            transform: translateX(-50%);
+            z-index: 30;
+            padding: 12px 20px;
+            border-radius: 999px;
+            font-size: 15px;
+            max-width: 90%;
+            text-align: center
+        }
     </style>
 </head>
 
@@ -648,12 +665,14 @@
                 </svg></button>
         </div>
     </div>
+    <div id="toast" class="glass hide" role="status"></div>
     <div id="dim" class="hide"><span>Press and hold to wake</span></div>
     <div id="ov" class="hide">
         <div class="av glass" id="avl">?</div>
         <h1 id="who" style="margin:0;font-size:32px"></h1>
         <p id="st" style="margin:0"></p>
         <div class="meter hide" id="mt"><b id="mb"></b></div>
+        <p id="qs" class="hide" style="margin:0;font-size:13px"></p>
         <div class="chips hide" id="chips"><button class="chip glass" id="mode">Speaker</button><button class="chip glass" id="mute">Mute</button></div>
         <div class="row" style="gap:30px;margin-top:10px"><button class="bad hide" id="dec">Decline</button><button class="ok hide" id="acc">Answer</button><button class="bad hide" id="end">End</button></div>
     </div>
@@ -670,8 +689,10 @@
             messagingSenderId: "68838612148",
             appId: "1:68838612148:web:5d8fb57b36e46c5b070be1"
         });
+        /* TURN relay: add your own server here (coturn, Metered, Cloudflare...) so calls connect on strict networks */
+        const TURN = [ /* {urls:'turn:YOUR_HOST:3478',username:'USER',credential:'PASS'} */ ];
         const auth = firebase.auth();
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        const ready = auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.warn('persistence', e));
         const db = firebase.firestore(),
             $ = i => document.getElementById(i);
         let me = null,
@@ -695,6 +716,7 @@
         $('go').onclick = async () => {
             err('ae');
             try {
+                await ready;
                 if (signup) {
                     pendName = $('nm').value.trim() || 'Me';
                     await auth.createUserWithEmailAndPassword($('em').value, $('pw').value)
@@ -722,9 +744,12 @@
                         number: n,
                         name
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('claim attempt ' + (i + 1) + ' failed', e);
+                    if (e.code !== 'permission-denied') throw e
+                }
             }
-            throw Error('Could not allocate a number')
+            throw Error('Could not allocate a number. Check your connection and try again.')
         }
         auth.onAuthStateChanged(async u => {
             unsubs.forEach(f => f());
@@ -735,14 +760,22 @@
                 show('home', false);
                 return
             }
-            let d = await db.doc('users/' + u.uid).get();
-            me = d.exists ? {
-                ...d.data(),
-                uid: u.uid
-            } : {
-                ...await claim(u, pendName || u.displayName || 'Me'),
-                uid: u.uid
-            };
+            try {
+                let d = await db.doc('users/' + u.uid).get();
+                me = d.exists ? {
+                    ...d.data(),
+                    uid: u.uid
+                } : {
+                    ...await claim(u, pendName || u.displayName || 'Me'),
+                    uid: u.uid
+                }
+            } catch (e) {
+                err('ae', e.message.replace('Firebase: ', ''));
+                show('auth');
+                show('home', false);
+                auth.signOut();
+                return
+            }
             show('auth', false);
             show('home');
             $('mynum').textContent = me.number;
@@ -758,10 +791,15 @@
         });
 
         /* ---------- dial pad + contacts ---------- */
-        '123456789*0⌫'.split('').forEach(k => {
+        '123456789 0⌫'.split('').forEach(k => {
+            if (k === ' ') {
+                $('pad').append(document.createElement('span'));
+                return
+            }
             const b = document.createElement('button');
             b.textContent = k;
             b.onclick = () => {
+                navigator.vibrate && navigator.vibrate(6);
                 dialed = k === '⌫' ? dialed.slice(0, -1) : /\d/.test(k) && dialed.length < 8 ? dialed + k : dialed;
                 $('dial').innerHTML = dialed || '&nbsp;'
             };
@@ -792,8 +830,16 @@
             ph: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>'
         };
         let CT = [];
-        const hue = n => Math.abs([...n].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % 360;
-        const av = (n, c) => `<div class="${c}" style="background:linear-gradient(160deg,hsl(${hue(n)} 60% 80%),hsl(${hue(n)} 42% 56%))">${esc((n[0]||'?').toUpperCase())}</div>`;
+        const hue = n => {
+            let h = 2166136261;
+            for (const c of n) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+            return (h >>> 0) % 360
+        };
+        const av = (n, c, k = '') => {
+            n = String(n ?? '');
+            const h = hue(n + k);
+            return `<div class="${c}" style="background:linear-gradient(160deg,hsl(${h} 60% 80%),hsl(${h} 42% 56%))">${esc((n[0]||'?').toUpperCase())}</div>`
+        };
         const fmt = t => {
             const d = new Date(t),
                 n = new Date();
@@ -842,12 +888,12 @@
 
         function drawContacts() {
             const q = $('srch').value.toLowerCase(),
-                L = CT.filter(c => c.name.toLowerCase().includes(q) || c.number.includes(q));
+                L = CT.filter(c => String(c.name || '').toLowerCase().includes(q) || String(c.number || '').includes(q));
             $('cl').innerHTML = L.length ? '' : '<p class="empty">' + (CT.length ? 'No matches.' : 'No contacts yet. Add a number above.') + '</p>';
             L.forEach(c => {
                 const r = document.createElement('div');
                 r.className = 'item';
-                r.innerHTML = `${av(c.name,'av2')}<div class="m"><b>${esc(c.name)}</b><small>${c.number}</small></div><button class="cbtn rm">✕</button><button class="cbtn glass">${I.ph}</button>`;
+                r.innerHTML = `${av(c.name,'av2',c.number)}<div class="m"><b>${esc(c.name)}</b><small>${c.number}</small></div><button class="cbtn rm">✕</button><button class="cbtn glass">${I.ph}</button>`;
                 const [b1, b2] = r.querySelectorAll('button');
                 b1.onclick = () => c.ref.delete();
                 b2.onclick = () => startCall(c.number);
@@ -857,7 +903,7 @@
             CT.slice(0, 10).forEach(c => {
                 const f = document.createElement('button');
                 f.className = 'fav';
-                f.innerHTML = `${av(c.name,'tile')}<span>${esc(c.name)}</span>`;
+                f.innerHTML = `${av(c.name,'tile',c.number)}<span>${esc(c.name)}</span>`;
                 f.onclick = () => startCall(c.number);
                 $('fv').append(f)
             });
@@ -891,7 +937,7 @@
             L.forEach(x => {
                 const r = document.createElement('div');
                 r.className = 'item';
-                r.innerHTML = `${av(x.name,'av2')}<div class="m"><b class="${x.dir==='missed'?'red':''}">${esc(x.name)}</b><small>${x.dir==='out'?'↗ Outgoing':x.dir==='missed'?'↙ Missed':'↙ Incoming'} · ${x.number}</small></div><time>${fmt(x.t)}</time><button class="cbtn rm">✕</button><button class="cbtn glass">${I.ph}</button>`;
+                r.innerHTML = `${av(x.name,'av2',x.number)}<div class="m"><b class="${x.dir==='missed'?'red':''}">${esc(x.name)}</b><small>${x.dir==='out'?'↗ Outgoing':x.dir==='missed'?'↙ Missed':'↙ Incoming'} · ${x.number}</small></div><time>${fmt(x.t)}</time><button class="cbtn rm">✕</button><button class="cbtn glass">${I.ph}</button>`;
                 const [b1, b2] = r.querySelectorAll('button');
                 b1.onclick = () => {
                     sr(gr().filter(y => y.t !== x.t));
@@ -944,7 +990,17 @@
             sr([]);
             drawRecents()
         };
-        const esc = s => s.replace(/[&<>"]/g, c => ({
+        let tt;
+
+        function toast(m) {
+            if ($('toast').textContent === m && !$('toast').classList.contains('hide')) return;
+            $('toast').textContent = m;
+            show('toast');
+            clearTimeout(tt);
+            tt = setTimeout(() => show('toast', false), 4500)
+        }
+        const FAIL = "Couldn't connect. One of you may be on a network that needs a relay server (TURN).";
+        const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({
             '&': '&amp;',
             '<': '&lt;',
             '>': '&gt;',
@@ -1008,7 +1064,6 @@
         /* ---------- mic: auto-level + flat/ear detection ---------- */
         const A = {
             mode: 'speaker',
-            manual: false,
             level: .05,
             raw: null,
             ctx: null,
@@ -1062,20 +1117,32 @@
             if (S && S.connected && A.mode === 'ear') dimT = setTimeout(() => show('dim'), d)
         }
 
-        function setMode(m) {
+        function setMode(m, q) {
             A.mode = m;
             $('mode').textContent = m === 'speaker' ? 'Speaker' : 'Ear';
             $('rem').volume = m === 'speaker' ? 1 : .55;
-            dimCheck()
+            q || dimCheck()
         }
-        let wk;
+        let wk, wd, dn;
         $('dim').onpointerdown = () => {
-            wk = setTimeout(() => dimCheck(6000), 700)
+            dn = 1;
+            wd = 0;
+            wk = setTimeout(() => {
+                wd = 1;
+                dimCheck(6000)
+            }, 700)
         };
-        $('dim').onpointerup = $('dim').onpointercancel = $('dim').onpointerleave = () => clearTimeout(wk);
-        addEventListener('gesturestart', e => e.preventDefault());
+        $('dim').onpointerup = $('dim').onpointercancel = $('dim').onpointerleave = () => {
+            if (!dn) return;
+            dn = 0;
+            clearTimeout(wk);
+            if (!wd) {
+                const h = $('dim').firstElementChild;
+                h.style.color = 'rgba(255,255,255,.8)';
+                setTimeout(() => h.style.color = '', 1500)
+            }
+        };
         $('mode').onclick = () => {
-            A.manual = true;
             setMode(A.mode === 'speaker' ? 'ear' : 'speaker')
         };
         $('mute').onclick = () => {
@@ -1090,18 +1157,54 @@
             const pc = new RTCPeerConnection({
                 iceServers: [{
                     urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302']
-                }]
+                }, ...TURN]
             });
             const stream = await micSetup();
             stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            try {
+                const cs = RTCRtpReceiver.getCapabilities('audio').codecs;
+                pc.getTransceivers().forEach(t => t.setCodecPreferences && t.setCodecPreferences([...cs.filter(x => /opus/i.test(x.mimeType)), ...cs.filter(x => !/opus/i.test(x.mimeType))]))
+            } catch (e) {
+                console.warn('codec preference unavailable', e)
+            }
             pc.ontrack = e => {
-                $('rem').srcObject = e.streams[0]
+                $('rem').srcObject = e.streams[0];
+                $('rem').play().catch(() => {
+                    $('st').textContent = 'Tap anywhere to hear audio';
+                    addEventListener('pointerdown', () => $('rem').play(), {
+                        once: true
+                    })
+                })
             };
             pc.onicecandidate = e => e.candidate && callRef.collection(mine).add(e.candidate.toJSON());
             const u = callRef.collection(theirs).onSnapshot(s => s.docChanges().forEach(c => c.type === 'added' && pc.addIceCandidate(c.doc.data()).catch(() => {})));
             pc.onconnectionstatechange = () => {
                 if (pc.connectionState === 'connected') {
                     S.connected = 1;
+                    show('qs');
+                    clearInterval(S.stats);
+                    S.stats = (() => {
+                        let pl = 0,
+                            pr = 0;
+                        return setInterval(async () => {
+                            try {
+                                let rtt, lost = 0,
+                                    rcv = 0;
+                                (await pc.getStats()).forEach(x => {
+                                    if (x.type === 'candidate-pair' && x.nominated && x.state === 'succeeded' && x.currentRoundTripTime != null) rtt = x.currentRoundTripTime;
+                                    if (x.type === 'inbound-rtp' && x.kind === 'audio') {
+                                        lost = x.packetsLost || 0;
+                                        rcv = x.packetsReceived || 0
+                                    }
+                                });
+                                const dl = Math.max(0, lost - pl),
+                                    dr = Math.max(0, rcv - pr);
+                                pl = lost;
+                                pr = rcv;
+                                $('qs').textContent = (rtt != null ? Math.round(rtt * 1000) + ' ms' : '') + (dl + dr ? ' · ' + (dl * 100 / (dl + dr)).toFixed(1) + '% lost' : '')
+                            } catch (e) {}
+                        }, 2000)
+                    })();
                     ui(S.who, '00:00', {
                         btns: ['end']
                     });
@@ -1117,7 +1220,14 @@
                         s.setParameters(p).catch(() => {})
                     })
                 }
+                if (pc.connectionState === 'failed') toast(FAIL);
                 if (['failed', 'closed'].includes(pc.connectionState)) hang()
+            };
+            pc.oniceconnectionstatechange = () => {
+                if (pc.iceConnectionState === 'failed' && S && S.pc === pc) {
+                    toast(FAIL);
+                    hang()
+                }
             };
             S = {
                 pc,
@@ -1167,10 +1277,19 @@
                     const c = d.data();
                     if (!c) return;
                     if (c.answer && !pc.currentRemoteDescription) await pc.setRemoteDescription(c.answer);
-                    if (c.status === 'ended') hang(true)
+                    if (c.status === 'busy') {
+                        toast('Line busy. Try again in a moment.');
+                        hang(true)
+                    } else if (c.status === 'ended') {
+                        if (!pc.currentRemoteDescription) toast('Call declined');
+                        hang(true)
+                    }
                 }));
                 S.to = setTimeout(() => {
-                    S && !S.pc.currentRemoteDescription && hang()
+                    if (S && !S.pc.currentRemoteDescription) {
+                        toast('No answer');
+                        hang()
+                    }
                 }, 45000)
             } catch (e) {
                 err('de', e.message);
@@ -1180,8 +1299,14 @@
         let inc = null;
 
         function incoming(s) {
-            if (S && S.caller !== undefined) return;
-            if (s.empty) {
+            if (S) {
+                s.docs.filter(d => !inc || d.id !== inc.id).forEach(d => d.ref.update({
+                    status: 'busy'
+                }).catch(() => {}));
+                return
+            }
+            const L = s.docs.filter(d => Date.now() - (d.data().created || 0) < 90000);
+            if (!L.length) {
                 if (inc && !S) {
                     const c = inc.data();
                     addRecent({
@@ -1196,7 +1321,7 @@
                 }
                 return
             }
-            const d = s.docs[0];
+            const d = L[0];
             if (inc && inc.id === d.id) return;
             inc = d;
             const c = d.data();
@@ -1212,7 +1337,7 @@
                     tag: 'call'
                 });
                 n.onclick = () => {
-                    focus();
+                    window.focus();
                     n.close()
                 }
             }
@@ -1237,6 +1362,13 @@
             ring(false);
             const c = inc.data(),
                 ref = inc.ref;
+            const f = await ref.get();
+            if (!f.exists || f.data().status !== 'ringing') {
+                inc = null;
+                ui('', '', {});
+                show('ov', false);
+                return
+            }
             addRecent({
                 name: c.callerName,
                 number: c.callerNumber,
@@ -1280,6 +1412,8 @@
             ring(false);
             clearTimeout(s.to);
             clearInterval(timerI);
+            clearInterval(s.stats);
+            show('qs', false);
             clearInterval(A.loop);
             s.unsub.forEach(f => f());
             clearTimeout(dimT);
@@ -1294,12 +1428,12 @@
                     status: 'ended'
                 })
             } catch (e) {}
-            if (s.caller) setTimeout(() => s.callRef.delete().catch(() => {}), 3000); // caller cleans up the call doc
+            if (s.caller) setTimeout(() => s.callRef.delete().catch(() => {}), 15000); // caller cleans up the call doc
             show('ov', false);
             show('mt', false);
             show('chips', false);
             $('rem').srcObject = null;
-            setMode('speaker')
+            setMode('speaker', 1)
         }
     </script>
 </body>
