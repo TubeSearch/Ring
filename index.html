@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <title>Ring</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
             color-scheme: light dark;
@@ -311,7 +312,13 @@
         }
 
         .row input {
-            margin: 0
+            margin: 0;
+            min-width: 0;
+            flex: 1
+        }
+
+        #add i {
+            font-size: 20px
         }
 
         #dial {
@@ -511,7 +518,7 @@
                 </div>
                 <input id="srch" placeholder="Search contacts" type="search">
                 <h2>Add contact</h2>
-                <div class="row" style="margin-bottom:6px"><input id="cn" placeholder="Name" style="margin:0"><input id="cnum" placeholder="8-digit number" inputmode="numeric" maxlength="8" style="margin:0"><button class="pill glass" id="add" style="min-width:0;padding:12px 18px;color:var(--blue)">✔</button></div>
+                <div class="row" style="margin-bottom:6px"><input id="cn" placeholder="Name" style="margin:0"><input id="cnum" placeholder="8-digit number" inputmode="numeric" maxlength="8" style="margin:0"><button class="cbtn glass" id="add" aria-label="Add contact" title="Add contact"><i class="fa-solid fa-check"></i></button></div>
                 <div class="err" id="ce"></div>
                 <h2>All contacts</h2>
                 <div id="cl"></div>
