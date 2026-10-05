@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <title>Ring</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --ink: #111;
+            --dim: #8a8a8e;
+            --blue: #0a7aff;
+            --line: rgba(60, 60, 67, .14);
+            --bg: #fafafa;
+            --tab: #3c3c43;
+            --err: #d70015;
+            --ovbg: rgba(250, 250, 252, .62);
+            --gbg: rgba(255, 255, 255, .58);
+            --gedge: rgba(255, 255, 255, .95);
+            --ghi: rgba(255, 255, 255, .95);
+            --gsh: rgba(0, 0, 0, .13)
+        }
+
+        @media(prefers-color-scheme:dark) {
+            :root {
+                --ink: #fff;
+                --dim: #98989f;
+                --blue: #0a84ff;
+                --line: rgba(255, 255, 255, .14);
+                --bg: #000;
+                --tab: #ebebf5;
+                --err: #ff6961;
+                --ovbg: rgba(0, 0, 0, .55);
+                --gbg: rgba(70, 70, 76, .5);
+                --gedge: rgba(255, 255, 255, .16);
+                --ghi: rgba(255, 255, 255, .22);
+                --gsh: rgba(0, 0, 0, .5)
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%
+        }
+
+        body {
+            font-family: -apple-system, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            padding-top: env(safe-area-inset-top)
+        }
+
+        .glass {
+            background: var(--gbg);
+            backdrop-filter: blur(28px) saturate(210%);
+            -webkit-backdrop-filter: blur(28px) saturate(210%);
+            border: 1px solid var(--gedge);
+            box-shadow: inset 0 1.5px 1px var(--ghi), inset 0 -1px 2px rgba(0, 0, 0, .06), 0 8px 26px var(--gsh)
+        }
+
+        .wrap {
+            max-width: 460px;
+            margin: 0 auto;
+            padding: 0 20px 140px
+        }
+
+        button {
+            font: inherit;
+            color: var(--ink);
+            cursor: pointer;
+            border: 0;
+            transition: transform .18s cubic-bezier(.3, 1.6, .5, 1), background .2s
+        }
+
+        button:active {
+            transform: scale(.92)
+        }
+
+        button:focus-visible,
+        input:focus-visible {
+            outline: 2px solid var(--blue);
+            outline-offset: 2px
+        }
+
+        .top {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0 8px;
+            height: 68px
+        }
+
+        .top b {
+            font-size: 17px;
+            font-weight: 600
+        }
+
+        .pill {
+            border-radius: 999px;
+            padding: 12px 20px;
+            font-size: 17px;
+            font-weight: 500;
+            min-width: 74px
+        }
+
+        h1 {
+            font-size: 40px;
+            margin: 30px 0 4px;
+            letter-spacing: -.02em
+        }
+
+        h2 {
+            font-size: 30px;
+            margin: 14px 0 4px;
+            font-weight: 700;
+            letter-spacing: -.01em
+        }
+
+        p {
+            color: var(--dim);
+            margin: 0 0 12px
+        }
+
+        .empty {
+            padding: 14px 0
+        }
+
+        input {
+            width: 100%;
+            padding: 15px 16px;
+            margin-bottom: 10px;
+            border-radius: 16px;
+            border: 0;
+            background: rgba(120, 120, 128, .12);
+            color: var(--ink);
+            font-size: 17px;
+            outline: none
+        }
+
+        input::placeholder {
+            color: var(--dim)
+        }
+
+        .card {
+            padding: 20px;
+            border-radius: 30px
+        }
+
+        .main {
+            width: 100%;
+            padding: 16px;
+            border-radius: 999px;
+            font-size: 17px;
+            font-weight: 600;
+            background: var(--blue);
+            color: #fff
+        }
+
+        .ok {
+            background: #34c759;
+            color: #fff;
+            border-radius: 999px;
+            padding: 16px 26px;
+            font-weight: 600;
+            font-size: 17px
+        }
+
+        .bad {
+            background: #ff3b30;
+            color: #fff;
+            border-radius: 999px;
+            padding: 16px 26px;
+            font-weight: 600;
+            font-size: 17px
+        }
+
+        .favs {
+            display: flex;
+            gap: 14px;
+            overflow-x: auto;
+            padding: 14px 2px 18px;
+            scrollbar-width: none
+        }
+
+        .fav {
+            flex: 0 0 86px;
+            background: none;
+            text-align: center;
+            font-size: 13px;
+            color: var(--dim);
+            padding: 0
+        }
+
+        .fav span {
+            display: block;
+            margin-top: 7px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        .tile {
+            width: 86px;
+            height: 128px;
+            border-radius: 32px;
+            display: grid;
+            place-items: center;
+            font-size: 34px;
+            font-weight: 600;
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, .14)
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--line)
+        }
+
+        .item:last-child {
+            border: 0
+        }
+
+        .av2 {
+            flex: 0 0 54px;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 22px;
+            font-weight: 600;
+            color: #fff
+        }
+
+        .m {
+            flex: 1;
+            min-width: 0
+        }
+
+        .m b {
+            display: block;
+            font-size: 18px;
+            font-weight: 600
+        }
+
+        .m small {
+            color: var(--dim);
+            font-size: 15px
+        }
+
+        .red {
+            color: #ff3b30
+        }
+
+        .item time {
+            color: var(--dim);
+            font-size: 15px;
+            align-self: flex-start;
+            margin-top: 4px
+        }
+
+        .cbtn {
+            flex: 0 0 50px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            color: var(--blue)
+        }
+
+        .rm {
+            display: none;
+            color: #ff3b30;
+            background: none;
+            box-shadow: none
+        }
+
+        .ed .rm {
+            display: grid
+        }
+
+        .num {
+            font-size: 38px;
+            font-weight: 700;
+            letter-spacing: .06em;
+            font-variant-numeric: tabular-nums
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .row input {
+            margin: 0
+        }
+
+        #dial {
+            font-size: 40px;
+            text-align: center;
+            font-weight: 300;
+            min-height: 56px;
+            letter-spacing: .06em;
+            margin-top: 18px
+        }
+
+        .pad {
+            display: grid;
+            grid-template-columns: repeat(3, 78px);
+            gap: 18px;
+            justify-content: center;
+            margin: 18px 0
+        }
+
+        .pad button {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            font-size: 30px;
+            font-weight: 400;
+            background: rgba(120, 120, 128, .14)
+        }
+
+        .tabs {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: calc(10px + env(safe-area-inset-bottom));
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            padding: 0 16px;
+            z-index: 6
+        }
+
+        .bar {
+            display: flex;
+            border-radius: 999px;
+            padding: 6px;
+            flex: 1;
+            max-width: 340px
+        }
+
+        .tab {
+            flex: 1;
+            background: none;
+            border-radius: 999px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 8px 0 6px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--tab)
+        }
+
+        .tab.on {
+            background: rgba(120, 120, 128, .18);
+            color: var(--blue)
+        }
+
+        .srch {
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            color: var(--tab)
+        }
+
+        .hide {
+            display: none !important
+        }
+
+        #ov {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: var(--ovbg);
+            backdrop-filter: blur(44px) saturate(200%);
+            -webkit-backdrop-filter: blur(44px) saturate(200%);
+            animation: in .35s
+        }
+
+        @keyframes in {
+            from {
+                opacity: 0;
+                transform: scale(1.04)
+            }
+        }
+
+        .av {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 48px;
+            font-weight: 600;
+            position: relative
+        }
+
+        #ov.ring .av::after {
+            content: "";
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 2px solid rgba(60, 60, 67, .25);
+            animation: pu 1.4s infinite
+        }
+
+        @keyframes pu {
+            to {
+                transform: scale(1.4);
+                opacity: 0
+            }
+        }
+
+        .meter {
+            width: 200px;
+            height: 8px;
+            border-radius: 9px;
+            background: rgba(120, 120, 128, .2);
+            overflow: hidden
+        }
+
+        .meter b {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: var(--blue);
+            transition: width .08s
+        }
+
+        .chips {
+            display: flex;
+            gap: 10px
+        }
+
+        .chip {
+            padding: 10px 18px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 999px
+        }
+
+        .err {
+            color: var(--err);
+            min-height: 20px;
+            font-size: 14px
+        }
+    </style>
+</head>
+
+<body>
+    <audio id="rem" autoplay playsinline></audio>
+    <div class="wrap hide" id="auth">
+        <h1>Ring</h1>
+        <p>Crystal-clear calls with an 8-digit number.</p>
+        <div class="glass card">
+            <input id="nm" placeholder="Your name" autocomplete="name">
+            <input id="em" type="email" placeholder="Email" autocomplete="email">
+            <input id="pw" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+            <div class="err" id="ae"></div>
+            <button class="main" id="go">Create account</button>
+            <p style="text-align:center;margin:14px 0 0"><a href="#" id="sw" style="color:var(--blue);text-decoration:none">I already have an account</a></p>
+        </div>
+    </div>
+    <div id="home" class="hide">
+        <div class="wrap">
+            <div class="top"><button class="pill glass" id="edit">Edit</button><b id="ttl">Calls</b><span style="min-width:74px"></span></div>
+            <section id="t-calls">
+                <div class="favs hide" id="favs">
+                    <div id="fv" style="display:flex;gap:14px"></div>
+                </div>
+                <h2>Recents</h2>
+                <div id="rl"></div>
+            </section>
+            <section id="t-contacts" class="hide">
+                <div class="glass card" style="text-align:center;margin:6px 0 18px">
+                    <p style="margin:0 0 4px">My number</p>
+                    <div class="num" id="mynum">--------</div>
+                    <p id="myname" style="margin:4px 0 14px"></p>
+                    <div class="row" style="justify-content:center"><button class="pill glass" id="notif">Enable alerts</button><button class="pill glass" id="out">Sign out</button></div>
+                </div>
+                <input id="srch" placeholder="Search contacts" type="search">
+                <h2>Add contact</h2>
+                <div class="row" style="margin-bottom:6px"><input id="cn" placeholder="Name" style="margin:0"><input id="cnum" placeholder="8-digit number" inputmode="numeric" maxlength="8" style="margin:0"><button class="pill glass" id="add" style="min-width:0;padding:12px 18px;color:var(--blue)">Add</button></div>
+                <div class="err" id="ce"></div>
+                <h2>All contacts</h2>
+                <div id="cl"></div>
+            </section>
+            <section id="t-keypad" class="hide">
+                <div id="dial">&nbsp;</div>
+                <div class="pad" id="pad"></div>
+                <div class="err" id="de" style="text-align:center"></div>
+                <div style="text-align:center"><button class="ok" id="call" style="min-width:200px">Call</button></div>
+            </section>
+        </div>
+        <div class="tabs">
+            <div class="bar glass">
+                <button class="tab on" data-t="calls"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                    </svg>Calls</button>
+                <button class="tab" data-t="contacts"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="12" cy="8" r="4" />
+                        <path d="M4 21c1-4 4-6 8-6s7 2 8 6" />
+                    </svg>Contacts</button>
+                <button class="tab" data-t="keypad"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="5" cy="5" r="1.8" />
+                        <circle cx="12" cy="5" r="1.8" />
+                        <circle cx="19" cy="5" r="1.8" />
+                        <circle cx="5" cy="12" r="1.8" />
+                        <circle cx="12" cy="12" r="1.8" />
+                        <circle cx="19" cy="12" r="1.8" />
+                        <circle cx="5" cy="19" r="1.8" />
+                        <circle cx="12" cy="19" r="1.8" />
+                        <circle cx="19" cy="19" r="1.8" />
+                    </svg>Keypad</button>
+            </div><button class="srch glass" id="sb" aria-label="Search"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-5-5" />
+                </svg></button>
+        </div>
+    </div>
+    <div id="ov" class="hide">
+        <div class="av glass" id="avl">?</div>
+        <h1 id="who" style="margin:0;font-size:32px"></h1>
+        <p id="st" style="margin:0"></p>
+        <div class="meter hide" id="mt"><b id="mb"></b></div>
+        <div class="chips hide" id="chips"><button class="chip glass" id="mode">Speaker</button><button class="chip glass" id="mute">Mute</button></div>
+        <div class="row" style="gap:30px;margin-top:10px"><button class="bad hide" id="dec">Decline</button><button class="ok hide" id="acc">Answer</button><button class="bad hide" id="end">End</button></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js"></script>
+    <script>
+        firebase.initializeApp({
+            apiKey: "AIzaSyB7Oa3LZBq2Ssj622zR6Z7xRB04eEJ1Xjw",
+            authDomain: "callingv2.firebaseapp.com",
+            projectId: "callingv2",
+            storageBucket: "callingv2.firebasestorage.app",
+            messagingSenderId: "68838612148",
+            appId: "1:68838612148:web:5d8fb57b36e46c5b070be1"
+        });
+        const auth = firebase.auth();
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        const db = firebase.firestore(),
+            $ = i => document.getElementById(i);
+        let me = null,
+            signup = true,
+            pendName = '',
+            dialed = '',
+            unsubs = [],
+            S = null,
+            ringT, ringCtx;
+        const show = (id, on = true) => $(id).classList.toggle('hide', !on);
+        const err = (id, m) => $(id).textContent = m || '';
+
+        /* ---------- auth + unique 8-digit number ---------- */
+        $('sw').onclick = e => {
+            e.preventDefault();
+            signup = !signup;
+            show('nm', signup);
+            $('go').textContent = signup ? 'Create account' : 'Sign in';
+            $('sw').textContent = signup ? 'I already have an account' : 'Create a new account'
+        };
+        $('go').onclick = async () => {
+            err('ae');
+            try {
+                if (signup) {
+                    pendName = $('nm').value.trim() || 'Me';
+                    await auth.createUserWithEmailAndPassword($('em').value, $('pw').value)
+                } else await auth.signInWithEmailAndPassword($('em').value, $('pw').value)
+            } catch (e) {
+                err('ae', e.message.replace('Firebase: ', ''))
+            }
+        };
+        $('out').onclick = () => auth.signOut();
+        async function claim(u, name) {
+            for (let i = 0; i < 30; i++) {
+                const n = String(10000000 + crypto.getRandomValues(new Uint32Array(1))[0] % 90000000);
+                try {
+                    const b = db.batch();
+                    b.set(db.doc('numbers/' + n), {
+                        uid: u.uid,
+                        name
+                    });
+                    b.set(db.doc('users/' + u.uid), {
+                        number: n,
+                        name
+                    });
+                    await b.commit();
+                    return {
+                        number: n,
+                        name
+                    }
+                } catch (e) {}
+            }
+            throw Error('Could not allocate a number')
+        }
+        auth.onAuthStateChanged(async u => {
+            unsubs.forEach(f => f());
+            unsubs = [];
+            if (!u) {
+                me = null;
+                show('auth');
+                show('home', false);
+                return
+            }
+            let d = await db.doc('users/' + u.uid).get();
+            me = d.exists ? {
+                ...d.data(),
+                uid: u.uid
+            } : {
+                ...await claim(u, pendName || u.displayName || 'Me'),
+                uid: u.uid
+            };
+            show('auth', false);
+            show('home');
+            $('mynum').textContent = me.number;
+            $('myname').textContent = me.name;
+            tab('calls');
+            drawRecents();
+            unsubs.push(db.collection('users/' + u.uid + '/contacts').onSnapshot(renderContacts));
+            unsubs.push(db.collection('calls').where('calleeUid', '==', u.uid).where('status', '==', 'ringing').onSnapshot(incoming));
+            if ('Notification' in window && Notification.permission === 'granted') show('notif', false)
+        });
+
+        /* ---------- dial pad + contacts ---------- */
+        '123456789*0⌫'.split('').forEach(k => {
+            const b = document.createElement('button');
+            b.textContent = k;
+            b.onclick = () => {
+                dialed = k === '⌫' ? dialed.slice(0, -1) : /\d/.test(k) && dialed.length < 8 ? dialed + k : dialed;
+                $('dial').innerHTML = dialed || '&nbsp;'
+            };
+            $('pad').append(b)
+        });
+        $('call').onclick = () => startCall(dialed);
+        async function lookup(n) {
+            if (!/^\d{8}$/.test(n)) throw Error('Numbers have 8 digits');
+            const d = await db.doc('numbers/' + n).get();
+            if (!d.exists) throw Error('No one has that number');
+            return d.data()
+        }
+        $('add').onclick = async () => {
+            err('ce');
+            try {
+                const n = $('cnum').value,
+                    r = await lookup(n);
+                await db.doc(`users/${me.uid}/contacts/${n}`).set({
+                    number: n,
+                    name: $('cn').value.trim() || r.name
+                });
+                $('cn').value = $('cnum').value = ''
+            } catch (e) {
+                err('ce', e.message)
+            }
+        };
+        const I = {
+            ph: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>'
+        };
+        let CT = [];
+        const hue = n => Math.abs([...n].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % 360;
+        const av = (n, c) => `<div class="${c}" style="background:linear-gradient(160deg,hsl(${hue(n)} 60% 80%),hsl(${hue(n)} 42% 56%))">${esc((n[0]||'?').toUpperCase())}</div>`;
+        const fmt = t => {
+            const d = new Date(t),
+                n = new Date();
+            return d.toDateString() === n.toDateString() ? d.toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+            }) : n - d < 172800000 ? 'Yesterday' : d.toLocaleDateString([], {
+                month: 'short',
+                day: 'numeric'
+            })
+        };
+        const T = {
+            calls: 'Calls',
+            contacts: 'Contacts',
+            keypad: 'Keypad'
+        };
+
+        function tab(n) {
+            for (const k in T) {
+                show('t-' + k, k === n);
+                document.querySelector(`[data-t=${k}]`).classList.toggle('on', k === n)
+            }
+            $('ttl').textContent = T[n];
+            scrollTo(0, 0)
+        }
+        document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => tab(b.dataset.t));
+        $('sb').onclick = () => {
+            tab('contacts');
+            $('srch').focus()
+        };
+        $('srch').oninput = () => drawContacts();
+        $('edit').onclick = () => {
+            const e = document.body.classList.toggle('ed');
+            $('edit').textContent = e ? 'Done' : 'Edit'
+        };
+
+        function renderContacts(s) {
+            CT = s.docs.map(d => ({
+                ...d.data(),
+                ref: d.ref
+            }));
+            drawContacts()
+        }
+
+        function drawContacts() {
+            const q = $('srch').value.toLowerCase(),
+                L = CT.filter(c => c.name.toLowerCase().includes(q) || c.number.includes(q));
+            $('cl').innerHTML = L.length ? '' : '<p class="empty">' + (CT.length ? 'No matches.' : 'No contacts yet. Add a number above.') + '</p>';
+            L.forEach(c => {
+                const r = document.createElement('div');
+                r.className = 'item';
+                r.innerHTML = `${av(c.name,'av2')}<div class="m"><b>${esc(c.name)}</b><small>${c.number}</small></div><button class="cbtn rm">✕</button><button class="cbtn glass">${I.ph}</button>`;
+                const [b1, b2] = r.querySelectorAll('button');
+                b1.onclick = () => c.ref.delete();
+                b2.onclick = () => startCall(c.number);
+                $('cl').append(r)
+            });
+            $('fv').innerHTML = '';
+            CT.slice(0, 10).forEach(c => {
+                const f = document.createElement('button');
+                f.className = 'fav';
+                f.innerHTML = `${av(c.name,'tile')}<span>${esc(c.name)}</span>`;
+                f.onclick = () => startCall(c.number);
+                $('fv').append(f)
+            });
+            show('favs', CT.length > 0)
+        }
+        const rk = () => 'rc_' + me.uid,
+            gr = () => {
+                try {
+                    return JSON.parse(localStorage.getItem(rk()) || '[]')
+                } catch (e) {
+                    return []
+                }
+            },
+            sr = l => {
+                try {
+                    localStorage.setItem(rk(), JSON.stringify(l.slice(0, 40)))
+                } catch (e) {}
+            };
+
+        function addRecent(x) {
+            sr([{
+                ...x,
+                t: Date.now()
+            }, ...gr()]);
+            drawRecents()
+        }
+
+        function drawRecents() {
+            const L = gr();
+            $('rl').innerHTML = L.length ? '' : '<p class="empty">No recent calls yet. Use Keypad or Contacts to start one.</p>';
+            L.forEach(x => {
+                const r = document.createElement('div');
+                r.className = 'item';
+                r.innerHTML = `${av(x.name,'av2')}<div class="m"><b class="${x.dir==='missed'?'red':''}">${esc(x.name)}</b><small>${x.dir==='out'?'↗ Outgoing':x.dir==='missed'?'↙ Missed':'↙ Incoming'} · ${x.number}</small></div><time>${fmt(x.t)}</time><button class="cbtn rm">✕</button><button class="cbtn glass">${I.ph}</button>`;
+                const [b1, b2] = r.querySelectorAll('button');
+                b1.onclick = () => {
+                    sr(gr().filter(y => y.t !== x.t));
+                    drawRecents()
+                };
+                b2.onclick = () => startCall(x.number);
+                $('rl').append(r)
+            })
+        }
+        const esc = s => s.replace(/[&<>"]/g, c => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;'
+        } [c]));
+
+        /* ---------- alerts + ringtone ---------- */
+        $('notif').onclick = async () => {
+            if ('Notification' in window && await Notification.requestPermission() === 'granted') show('notif', false)
+        };
+
+        function ring(on) {
+            clearInterval(ringT);
+            if (!on) {
+                ringCtx && ringCtx.close();
+                ringCtx = null;
+                return
+            }
+            ringCtx = new AudioContext();
+            const beep = () => {
+                [0, .25].forEach(t => {
+                    const o = ringCtx.createOscillator(),
+                        g = ringCtx.createGain();
+                    o.frequency.value = t ? 740 : 988;
+                    g.gain.setValueAtTime(.0001, ringCtx.currentTime + t);
+                    g.gain.exponentialRampToValueAtTime(.18, ringCtx.currentTime + t + .03);
+                    g.gain.exponentialRampToValueAtTime(.0001, ringCtx.currentTime + t + .22);
+                    o.connect(g).connect(ringCtx.destination);
+                    o.start(ringCtx.currentTime + t);
+                    o.stop(ringCtx.currentTime + t + .25)
+                });
+                navigator.vibrate && navigator.vibrate([300, 150, 300])
+            };
+            beep();
+            ringT = setInterval(beep, 2200)
+        }
+
+        /* ---------- call UI ---------- */
+        function ui(who, st, {
+            ringing = 0,
+            btns = []
+        } = {}) {
+            show('ov');
+            $('ov').classList.toggle('ring', !!ringing);
+            $('who').textContent = who;
+            $('avl').textContent = (who[0] || '?').toUpperCase();
+            $('st').textContent = st;
+            ['dec', 'acc', 'end'].forEach(b => show(b, btns.includes(b)))
+        }
+        let timerI;
+        const clock = () => {
+            const t0 = Date.now();
+            clearInterval(timerI);
+            timerI = setInterval(() => {
+                const s = Math.floor((Date.now() - t0) / 1e3);
+                $('st').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+            }, 500)
+        };
+
+        /* ---------- mic: auto-level + flat/ear detection ---------- */
+        const A = {
+            mode: 'speaker',
+            manual: false,
+            level: .05,
+            raw: null,
+            ctx: null,
+            gain: null
+        };
+        async function micSetup() {
+            A.raw = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: false,
+                    channelCount: 1,
+                    sampleRate: 48000
+                }
+            });
+            const c = A.ctx = new AudioContext({
+                    sampleRate: 48000
+                }),
+                src = c.createMediaStreamSource(A.raw),
+                an = c.createAnalyser(),
+                comp = c.createDynamicsCompressor(),
+                dest = c.createMediaStreamDestination();
+            an.fftSize = 1024;
+            A.gain = c.createGain();
+            comp.threshold.value = -18;
+            comp.ratio.value = 4;
+            comp.attack.value = .005;
+            comp.release.value = .2;
+            src.connect(an);
+            src.connect(A.gain);
+            A.gain.connect(comp);
+            comp.connect(dest);
+            const buf = new Float32Array(an.fftSize);
+            A.loop = setInterval(() => {
+                an.getFloatTimeDomainData(buf);
+                let s = 0;
+                for (const v of buf) s += v * v;
+                const rms = Math.sqrt(s / buf.length);
+                if (rms > .008) A.level = A.level * .96 + rms * .04; // track speaking level only while talking
+                const target = A.mode === 'speaker' ? .2 : .12; // speaker mode: talker is further away, so boost more
+                A.gain.gain.setTargetAtTime(Math.min(8, Math.max(.4, target / A.level)), c.currentTime, .3); // quiet voice up, loud voice down
+                $('mb').style.width = Math.min(100, rms * 400) + '%'
+            }, 60);
+            return dest.stream
+        }
+
+        function setMode(m) {
+            A.mode = m;
+            $('mode').textContent = m === 'speaker' ? 'Speaker' : 'Ear';
+            $('rem').volume = m === 'speaker' ? 1 : .55
+        }
+
+        function motion(e) {
+            if (A.manual) return;
+            const g = e.accelerationIncludingGravity;
+            if (g && g.z != null) setMode(Math.abs(g.z) > 7.5 ? 'speaker' : 'ear')
+        } // phone lying flat = gravity on Z axis
+        async function motionOn() {
+            try {
+                if (window.DeviceMotionEvent && DeviceMotionEvent.requestPermission) await DeviceMotionEvent.requestPermission();
+                addEventListener('devicemotion', motion)
+            } catch (e) {}
+        }
+        $('mode').onclick = () => {
+            A.manual = true;
+            setMode(A.mode === 'speaker' ? 'ear' : 'speaker')
+        };
+        $('mute').onclick = () => {
+            const t = A.raw.getAudioTracks()[0];
+            t.enabled = !t.enabled;
+            $('mute').textContent = t.enabled ? 'Mute' : 'Unmute'
+        };
+
+        /* ---------- WebRTC with Firestore signaling (audio never touches Firestore) ---------- */
+        const hq = s => s.replace(/(a=fmtp:111 [^\r\n]*)/, '$1;maxaveragebitrate=128000;useinbandfec=1;stereo=0;cbr=0'); // Opus @128 kbps
+        async function pc_(callRef, mine, theirs) {
+            const pc = new RTCPeerConnection({
+                iceServers: [{
+                    urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302']
+                }]
+            });
+            const stream = await micSetup();
+            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            pc.ontrack = e => {
+                $('rem').srcObject = e.streams[0]
+            };
+            pc.onicecandidate = e => e.candidate && callRef.collection(mine).add(e.candidate.toJSON());
+            const u = callRef.collection(theirs).onSnapshot(s => s.docChanges().forEach(c => c.type === 'added' && pc.addIceCandidate(c.doc.data()).catch(() => {})));
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'connected') {
+                    ui(S.who, '00:00', {
+                        btns: ['end']
+                    });
+                    show('mt');
+                    show('chips');
+                    clock();
+                    pc.getSenders().forEach(s => {
+                        const p = s.getParameters();
+                        p.encodings = [{
+                            maxBitrate: 128000
+                        }];
+                        s.setParameters(p).catch(() => {})
+                    })
+                }
+                if (['failed', 'closed'].includes(pc.connectionState)) hang()
+            };
+            S = {
+                pc,
+                callRef,
+                unsub: [u],
+                ...S
+            };
+            return pc
+        }
+        async function startCall(n) {
+            err('de');
+            if (S) return;
+            try {
+                const r = await lookup(n);
+                if (r.uid === me.uid) throw Error("That's your own number");
+                await motionOn();
+                addRecent({
+                    name: r.name,
+                    number: n,
+                    dir: 'out'
+                });
+                S = {
+                    who: r.name + ' (' + n + ')',
+                    caller: true
+                };
+                const ref = db.collection('calls').doc();
+                const pc = await pc_(ref, 'callerCandidates', 'calleeCandidates');
+                ui(S.who, 'Calling…', {
+                    ringing: 1,
+                    btns: ['end']
+                });
+                const o = await pc.createOffer();
+                o.sdp = hq(o.sdp);
+                await pc.setLocalDescription(o);
+                await ref.set({
+                    callerUid: me.uid,
+                    calleeUid: r.uid,
+                    callerName: me.name,
+                    callerNumber: me.number,
+                    status: 'ringing',
+                    offer: {
+                        type: o.type,
+                        sdp: o.sdp
+                    },
+                    created: Date.now()
+                });
+                S.unsub.push(ref.onSnapshot(async d => {
+                    const c = d.data();
+                    if (!c) return;
+                    if (c.answer && !pc.currentRemoteDescription) await pc.setRemoteDescription(c.answer);
+                    if (c.status === 'ended') hang(true)
+                }));
+                S.to = setTimeout(() => {
+                    S && !S.pc.currentRemoteDescription && hang()
+                }, 45000)
+            } catch (e) {
+                err('de', e.message);
+                S && hang()
+            }
+        }
+        let inc = null;
+
+        function incoming(s) {
+            if (S && S.caller !== undefined) return;
+            if (s.empty) {
+                if (inc && !S) {
+                    const c = inc.data();
+                    addRecent({
+                        name: c.callerName,
+                        number: c.callerNumber,
+                        dir: 'missed'
+                    });
+                    inc = null;
+                    ring(false);
+                    ui('', '', {});
+                    show('ov', false)
+                }
+                return
+            }
+            const d = s.docs[0];
+            if (inc && inc.id === d.id) return;
+            inc = d;
+            const c = d.data();
+            ui(c.callerName + ' (' + c.callerNumber + ')', 'Incoming call…', {
+                ringing: 1,
+                btns: ['dec', 'acc']
+            });
+            ring(true);
+            if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+                const n = new Notification('Incoming call', {
+                    body: c.callerName + ' · ' + c.callerNumber,
+                    requireInteraction: true,
+                    tag: 'call'
+                });
+                n.onclick = () => {
+                    focus();
+                    n.close()
+                }
+            }
+        }
+        $('dec').onclick = () => {
+            if (inc) {
+                const c = inc.data();
+                addRecent({
+                    name: c.callerName,
+                    number: c.callerNumber,
+                    dir: 'in'
+                });
+                inc.ref.update({
+                    status: 'ended'
+                })
+            }
+            inc = null;
+            ring(false);
+            show('ov', false)
+        };
+        $('acc').onclick = async () => {
+            ring(false);
+            const c = inc.data(),
+                ref = inc.ref;
+            await motionOn();
+            addRecent({
+                name: c.callerName,
+                number: c.callerNumber,
+                dir: 'in'
+            });
+            try {
+                S = {
+                    who: c.callerName + ' (' + c.callerNumber + ')',
+                    caller: false
+                };
+                ui(S.who, 'Connecting…', {
+                    btns: ['end']
+                });
+                const pc = await pc_(ref, 'calleeCandidates', 'callerCandidates');
+                await pc.setRemoteDescription(c.offer);
+                const a = await pc.createAnswer();
+                a.sdp = hq(a.sdp);
+                await pc.setLocalDescription(a);
+                await ref.update({
+                    answer: {
+                        type: a.type,
+                        sdp: a.sdp
+                    },
+                    status: 'active'
+                });
+                S.unsub.push(ref.onSnapshot(d => {
+                    const x = d.data();
+                    if (!x || x.status === 'ended') hang(true)
+                }))
+            } catch (e) {
+                err('de', e.message);
+                hang()
+            }
+        };
+        $('end').onclick = () => hang();
+        async function hang(remote) {
+            if (!S) return;
+            const s = S;
+            S = null;
+            inc = null;
+            ring(false);
+            clearTimeout(s.to);
+            clearInterval(timerI);
+            clearInterval(A.loop);
+            s.unsub.forEach(f => f());
+            removeEventListener('devicemotion', motion);
+            try {
+                s.pc.close();
+                A.raw && A.raw.getTracks().forEach(t => t.stop());
+                A.ctx && A.ctx.close()
+            } catch (e) {}
+            if (!remote) try {
+                await s.callRef.update({
+                    status: 'ended'
+                })
+            } catch (e) {}
+            if (s.caller) setTimeout(() => s.callRef.delete().catch(() => {}), 3000); // caller cleans up the call doc
+            show('ov', false);
+            show('mt', false);
+            show('chips', false);
+            $('rem').srcObject = null;
+            A.manual = false
+        }
+    </script>
+</body>
+
+</html>
