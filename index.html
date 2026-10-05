@@ -507,6 +507,63 @@
             min-height: 20px;
             font-size: 14px
         }
+
+        .grp {
+            border-radius: 26px;
+            padding: 2px 18px;
+            background: rgba(120, 120, 128, .12)
+        }
+
+        .set {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+            font-size: 17px;
+            width: 100%
+        }
+
+        .grp>:last-child {
+            border: 0
+        }
+
+        .set span {
+            flex: 1
+        }
+
+        .set em {
+            font-style: normal;
+            color: var(--dim);
+            max-width: 55%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .mini {
+            padding: 8px 16px;
+            border-radius: 999px;
+            background: rgba(120, 120, 128, .18);
+            color: var(--blue);
+            font-size: 15px;
+            font-weight: 600
+        }
+
+        .mini:disabled {
+            color: var(--dim)
+        }
+
+        .btn {
+            background: none;
+            text-align: left;
+            color: var(--blue)
+        }
+
+        .cap {
+            font-size: 13px;
+            margin: 10px 6px 8px
+        }
     </style>
 </head>
 
@@ -526,7 +583,7 @@
     </div>
     <div id="home" class="hide">
         <div class="wrap">
-            <div class="top"><button class="pill glass" id="edit">Edit</button><b id="ttl">Calls</b><span style="min-width:74px"></span></div>
+            <div class="top"><button class="pill glass" id="edit">Edit</button><b id="ttl">Calls</b><button class="pill glass" data-t="settings" aria-label="Settings" style="min-width:74px"><i class="fa-solid fa-gear"></i></button></div>
             <section id="t-calls">
                 <div class="favs hide" id="favs">
                     <div id="fv" style="display:flex;gap:14px"></div>
@@ -535,12 +592,6 @@
                 <div id="rl"></div>
             </section>
             <section id="t-contacts" class="hide">
-                <div class="glass card" style="text-align:center;margin:6px 0 18px">
-                    <p style="margin:0 0 4px">My number</p>
-                    <div class="num" id="mynum">--------</div>
-                    <p id="myname" style="margin:4px 0 14px"></p>
-                    <div class="row" style="justify-content:center"><button class="pill glass" id="notif">Enable alerts</button><button class="pill glass" id="out">Sign out</button></div>
-                </div>
                 <input id="srch" placeholder="Search contacts" type="search">
                 <h2>Add contact</h2>
                 <div class="row" style="margin-bottom:6px"><input id="cn" placeholder="Name" style="margin:0"><input id="cnum" placeholder="8-digit number" inputmode="numeric" maxlength="8" style="margin:0"><button class="cbtn glass" id="add" aria-label="Add contact" title="Add contact"><i class="fa-solid fa-check"></i></button></div>
@@ -553,6 +604,21 @@
                 <div class="pad" id="pad"></div>
                 <div class="err" id="de" style="text-align:center"></div>
                 <div style="text-align:center"><button class="ok" id="call" style="min-width:200px">Call</button></div>
+            </section>
+            <section id="t-settings" class="hide">
+                <div class="grp">
+                    <div class="set"><span>Name</span><em id="myname"></em></div>
+                    <div class="set"><span>Number</span><em id="mynum" style="letter-spacing:.06em"></em><button class="mini" id="cp">Copy</button></div>
+                    <div class="set"><span>Email</span><em id="sem"></em></div>
+                    <div class="set"><span>Joined</span><em id="sjn"></em></div>
+                </div>
+                <p class="cap">Alerts and microphone</p>
+                <div class="grp">
+                    <div class="set"><span>Call alerts</span><button class="mini" id="notif">Enable</button></div>
+                    <div class="set"><span>Microphone</span><em id="mst">-</em><button class="mini" id="mic">Allow</button></div>
+                </div>
+                <p class="cap">Your browser decides when to ask for the microphone. To stop the question on every call on iPhone, tap aA in Safari's address bar, then Website Settings, then Microphone, then Allow. Chrome remembers your answer on its own when the page is on a steady https address.</p>
+                <div class="grp" style="margin-top:20px"><button class="set btn" id="clr">Clear recent calls</button><button class="set btn" id="out" style="color:#ff3b30">Sign out</button></div>
             </section>
         </div>
         <div class="tabs">
@@ -685,7 +751,10 @@
             drawRecents();
             unsubs.push(db.collection('users/' + u.uid + '/contacts').onSnapshot(renderContacts));
             unsubs.push(db.collection('calls').where('calleeUid', '==', u.uid).where('status', '==', 'ringing').onSnapshot(incoming));
-            if ('Notification' in window && Notification.permission === 'granted') show('notif', false)
+            notifUI();
+            micState();
+            $('sem').textContent = u.email;
+            $('sjn').textContent = new Date(u.metadata.creationTime).toLocaleDateString()
         });
 
         /* ---------- dial pad + contacts ---------- */
@@ -739,7 +808,8 @@
         const T = {
             calls: 'Calls',
             contacts: 'Contacts',
-            keypad: 'Keypad'
+            keypad: 'Keypad',
+            settings: 'Settings'
         };
 
         function tab(n) {
@@ -748,6 +818,7 @@
                 document.querySelector(`[data-t=${k}]`).classList.toggle('on', k === n)
             }
             $('ttl').textContent = T[n];
+            $('edit').style.visibility = n === 'calls' || n === 'contacts' ? 'visible' : 'hidden';
             scrollTo(0, 0)
         }
         document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => tab(b.dataset.t));
@@ -830,6 +901,49 @@
                 $('rl').append(r)
             })
         }
+
+        function notifUI() {
+            const p = 'Notification' in window ? Notification.permission : 'denied';
+            $('notif').textContent = p === 'granted' ? 'On' : p === 'denied' ? 'Blocked' : 'Enable';
+            $('notif').disabled = p !== 'default'
+        }
+        async function micState() {
+            try {
+                const p = await navigator.permissions.query({
+                    name: 'microphone'
+                });
+                $('mst').textContent = {
+                    granted: 'Allowed',
+                    denied: 'Blocked',
+                    prompt: 'Asks each time'
+                } [p.state];
+                p.onchange = micState;
+                $('mic').disabled = p.state !== 'prompt'
+            } catch (e) {
+                $('mst').textContent = 'Unknown'
+            }
+        }
+        $('mic').onclick = async () => {
+            try {
+                (await navigator.mediaDevices.getUserMedia({
+                    audio: true
+                })).getTracks().forEach(t => t.stop())
+            } catch (e) {
+                $('mst').textContent = 'Blocked'
+            }
+            micState()
+        };
+        $('cp').onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(me.number);
+                $('cp').textContent = 'Copied';
+                setTimeout(() => $('cp').textContent = 'Copy', 1500)
+            } catch (e) {}
+        };
+        $('clr').onclick = () => {
+            sr([]);
+            drawRecents()
+        };
         const esc = s => s.replace(/[&<>"]/g, c => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -839,7 +953,8 @@
 
         /* ---------- alerts + ringtone ---------- */
         $('notif').onclick = async () => {
-            if ('Notification' in window && await Notification.requestPermission() === 'granted') show('notif', false)
+            if ('Notification' in window) await Notification.requestPermission();
+            notifUI()
         };
 
         function ring(on) {
